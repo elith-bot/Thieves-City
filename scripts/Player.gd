@@ -10,30 +10,39 @@ var current_speed = 0
 var current_money = 0
 var game_manager = null
 
+# Control
+var virtual_joystick = null
+var joystick_direction = Vector2.ZERO
+
 # Animation
 var sprite = null
 var animation_player = null
 
 func _ready():
 	# Get reference to GameManager
-	game_manager = get_tree().root.get_node("Main/GameManager")
+	var main_node = get_tree().root.get_node_or_null("Main")
+	if main_node:
+		game_manager = main_node.get_node_or_null("GameManager")
 	
-	# Create sprite
-	sprite = Sprite.new()
-	sprite.modulate = Color.blue
-	add_child(sprite)
+	# Add to player group
+	add_to_group("player")
 	
-	# Create collision shape
-	var collision_shape = CollisionShape2D.new()
-	var capsule_shape = CapsuleShape2D.new()
-	capsule_shape.radius = 10
-	capsule_shape.height = 20
-	collision_shape.shape = capsule_shape
-	add_child(collision_shape)
+	# Set name for identification
+	name = "Player"
 	
 	# Connect signals
 	if game_manager:
 		game_manager.connect("money_changed", self, "_on_money_changed")
+
+func set_virtual_joystick(joystick):
+	"""Set reference to virtual joystick"""
+	virtual_joystick = joystick
+	if virtual_joystick:
+		virtual_joystick.connect("direction_changed", self, "_on_joystick_direction_changed")
+
+func _on_joystick_direction_changed(direction):
+	"""Called when joystick direction changes"""
+	joystick_direction = direction
 
 func _process(delta):
 	handle_input()
@@ -41,17 +50,27 @@ func _process(delta):
 	check_collisions()
 
 func handle_input():
-	"""Handle player input"""
+	"""Handle player input from keyboard/mouse or virtual joystick"""
 	var input_vector = Vector2.ZERO
 	
-	if Input.is_action_pressed("ui_right"):
-		input_vector.x += 1
-	if Input.is_action_pressed("ui_left"):
-		input_vector.x -= 1
-	if Input.is_action_pressed("ui_down"):
-		input_vector.y += 1
-	if Input.is_action_pressed("ui_up"):
-		input_vector.y -= 1
+	# Check if virtual joystick is active and being used
+	var use_joystick = false
+	if virtual_joystick and virtual_joystick.has_method("is_visible_and_active"):
+		use_joystick = virtual_joystick.is_visible_and_active() and joystick_direction != Vector2.ZERO
+	
+	if use_joystick:
+		# Use virtual joystick
+		input_vector = joystick_direction
+	else:
+		# Use keyboard input (WASD or Arrow keys)
+		if Input.is_action_pressed("ui_right") or Input.is_key_pressed(KEY_D):
+			input_vector.x += 1
+		if Input.is_action_pressed("ui_left") or Input.is_key_pressed(KEY_A):
+			input_vector.x -= 1
+		if Input.is_action_pressed("ui_down") or Input.is_key_pressed(KEY_S):
+			input_vector.y += 1
+		if Input.is_action_pressed("ui_up") or Input.is_key_pressed(KEY_W):
+			input_vector.y -= 1
 	
 	input_vector = input_vector.normalized()
 	
@@ -71,36 +90,36 @@ func check_collisions():
 	var collisions = get_slide_count()
 	for i in range(collisions):
 		var collision = get_slide_collision(i)
-		if collision.collider.is_in_group("player"):
-			handle_player_collision(collision.collider)
-		elif collision.collider.is_in_group("loot"):
-			collect_loot(collision.collider)
+		var collider = collision.collider
+		
+		if collider.is_in_group("player") and collider != self:
+			handle_player_collision(collider)
 
 func handle_player_collision(other_player):
 	"""Handle collision with another player"""
-	if current_money > 0:
+	if current_money > 0 or other_player.get_money() > 0:
 		var other_money = other_player.get_money()
 		
 		if current_money > other_money:
 			# This player wins - steal all money from other
-			current_money += other_money
-			other_player.lose_money(other_money)
+			var stolen = other_money
+			current_money += stolen
+			other_player.lose_money(stolen)
 			if game_manager:
-				game_manager.add_money(other_money)
-		else:
+				game_manager.add_money(stolen)
+			print("Player stole $%d from %s" % [stolen, other_player.name])
+		elif other_money > current_money:
 			# This player loses - lose all money
-			other_player.current_money += current_money
+			var lost = current_money
+			other_player.add_money_direct(lost)
 			current_money = 0
 			if game_manager:
-				game_manager.subtract_money(current_money)
+				game_manager.subtract_money(lost)
+			print("Player lost $%d to %s" % [lost, other_player.name])
 
-func collect_loot(loot_item):
-	"""Collect loot item"""
-	var loot_value = loot_item.get_value()
-	current_money += loot_value
-	if game_manager:
-		game_manager.add_money(loot_value)
-	loot_item.queue_free()
+func add_money_direct(amount):
+	"""Add money directly (for AI collision)"""
+	current_money += amount
 
 func lose_money(amount):
 	"""Lose money"""
@@ -116,9 +135,19 @@ func set_money(amount):
 
 func _on_money_changed(new_amount):
 	"""Called when game manager money changes"""
-	# Update UI or visuals based on money change
-	pass
+	# Sync with game manager
+	current_money = new_amount
 
-func get_position_2d():
-	"""Get current position"""
-	return global_position
+func collect_loot(loot_value):
+	"""Collect loot and add to money"""
+	current_money += loot_value
+	if game_manager:
+		game_manager.add_money(loot_value)
+	print("Player collected $%d" % loot_value)
+
+func _on_Loot_area_entered(area):
+	"""Called when player enters loot area"""
+	if area.is_in_group("loot"):
+		var loot_value = area.get_value()
+		collect_loot(loot_value)
+		area.queue_free()

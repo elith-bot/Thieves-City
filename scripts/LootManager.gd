@@ -1,7 +1,6 @@
 extends Node2D
 
 # Loot spawning
-const LOOT_SCENE = preload("res://scenes/Loot.tscn")
 const SPAWN_RATE = 0.5  # Spawn every 0.5 seconds
 const MAX_LOOT_ON_MAP = 100
 const MAP_WIDTH = 1280
@@ -9,9 +8,12 @@ const MAP_HEIGHT = 720
 
 var spawn_timer = 0
 var loot_count = 0
+var loot_scene = null
 
 func _ready():
 	spawn_timer = SPAWN_RATE
+	# Load loot scene
+	loot_scene = load("res://scenes/Loot.tscn")
 
 func _process(delta):
 	spawn_timer -= delta
@@ -22,7 +24,10 @@ func _process(delta):
 
 func spawn_loot():
 	"""Spawn a random loot item on the map"""
-	var loot = LOOT_SCENE.instance()
+	if loot_scene == null:
+		return
+	
+	var loot = loot_scene.instance()
 	
 	# Random position
 	var random_x = randi() % MAP_WIDTH

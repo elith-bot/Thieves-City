@@ -26,40 +26,35 @@ var color = Color.white
 
 func _ready():
 	# Get reference to GameManager
-	game_manager = get_tree().root.get_node("Main/GameManager")
-	
-	# Create sprite
-	sprite = Sprite.new()
-	randomize_color()
-	sprite.modulate = color
-	add_child(sprite)
-	
-	# Create collision shape
-	var collision_shape = CollisionShape2D.new()
-	var capsule_shape = CapsuleShape2D.new()
-	capsule_shape.radius = 10
-	capsule_shape.height = 20
-	collision_shape.shape = capsule_shape
-	add_child(collision_shape)
+	var main_node = get_tree().root.get_node_or_null("Main")
+	if main_node:
+		game_manager = main_node.get_node_or_null("GameManager")
 	
 	# Add to player group
 	add_to_group("player")
 	
+	# Set random color
+	randomize_color()
+	var sprite_node = get_node_or_null("Sprite")
+	if sprite_node:
+		sprite_node.modulate = color
+	
 	# Set random starting position
-	global_position = Vector2(randi() % map_width, randi() % map_height)
+	global_position = Vector2(rand_range(100, map_width - 100), rand_range(100, map_height - 100))
 	
 	# Initialize behavior
 	choose_new_behavior()
+
+func randomize_color():
+	"""Assign random color to AI player"""
+	var colors = [Color(1, 0, 0, 1), Color(0, 1, 0, 1), Color(1, 1, 0, 1), 
+	              Color(1, 0, 1, 1), Color(0, 1, 1, 1), Color(1, 0.5, 0, 1)]
+	color = colors[randi() % colors.size()]
 
 func _process(delta):
 	update_behavior(delta)
 	update_movement(delta)
 	check_collisions()
-
-func randomize_color():
-	"""Assign random color to AI player"""
-	var colors = [Color.red, Color.green, Color.cyan, Color.magenta, Color.yellow, Color.orange]
-	color = colors[randi() % colors.size()]
 
 func update_behavior(delta):
 	"""Update AI behavior"""
@@ -76,18 +71,36 @@ func choose_new_behavior():
 	
 	match current_behavior:
 		"wander":
-			target_position = Vector2(randi() % map_width, randi() % map_height)
+			target_position = Vector2(rand_range(50, map_width - 50), rand_range(50, map_height - 50))
 		"chase":
-			# Chase nearest player with more money
-			var nearest_player = find_nearest_richer_player()
-			if nearest_player:
-				target_position = nearest_player.global_position
+			# Chase nearest loot
+			var nearest_loot = find_nearest_loot()
+			if nearest_loot:
+				target_position = nearest_loot.global_position
+			else:
+				target_position = Vector2(rand_range(50, map_width - 50), rand_range(50, map_height - 50))
 		"flee":
-			# Flee from nearest player with more money
+			# Flee from nearest richer player
 			var threatening_player = find_nearest_richer_player()
 			if threatening_player:
 				var flee_direction = (global_position - threatening_player.global_position).normalized()
 				target_position = global_position + flee_direction * 200
+			else:
+				target_position = Vector2(rand_range(50, map_width - 50), rand_range(50, map_height - 50))
+
+func find_nearest_loot():
+	"""Find nearest loot item"""
+	var loot_items = get_tree().get_nodes_in_group("loot")
+	var nearest = null
+	var nearest_distance = INF
+	
+	for loot in loot_items:
+		var distance = global_position.distance_to(loot.global_position)
+		if distance < nearest_distance:
+			nearest = loot
+			nearest_distance = distance
+	
+	return nearest
 
 func find_nearest_richer_player():
 	"""Find nearest player with more money"""
@@ -124,34 +137,48 @@ func update_movement(delta):
 	global_position.y = clamp(global_position.y, 0, map_height)
 
 func check_collisions():
-	"""Check for collisions with other players and loot"""
+	"""Check for collisions with other players"""
 	var collisions = get_slide_count()
 	for i in range(collisions):
 		var collision = get_slide_collision(i)
-		if collision.collider.is_in_group("player") and collision.collider != self:
-			handle_player_collision(collision.collider)
-		elif collision.collider.is_in_group("loot"):
-			collect_loot(collision.collider)
+		var collider = collision.collider
+		
+		if collider.is_in_group("player") and collider != self:
+			handle_player_collision(collider)
 
 func handle_player_collision(other_player):
 	"""Handle collision with another player"""
-	if current_money > 0:
+	if current_money > 0 or other_player.get_money() > 0:
 		var other_money = other_player.get_money()
 		
 		if current_money > other_money:
 			# This AI wins - steal all money from other
-			current_money += other_money
-			other_player.lose_money(other_money)
-		else:
+			var stolen = other_money
+			current_money += stolen
+			other_player.lose_money(stolen)
+			print("%s stole $%d from %s" % [name, stolen, other_player.name])
+		elif other_money > current_money:
 			# This AI loses - lose all money
-			other_player.current_money += current_money
+			var lost = current_money
+			other_player.add_money_direct(lost)
 			current_money = 0
+			print("%s lost $%d to %s" % [name, lost, other_player.name])
 
-func collect_loot(loot_item):
+func add_money_direct(amount):
+	"""Add money directly"""
+	current_money += amount
+
+func collect_loot(loot_value):
 	"""Collect loot item"""
-	var loot_value = loot_item.get_value()
 	current_money += loot_value
-	loot_item.queue_free()
+	print("%s collected $%d" % [name, loot_value])
+
+func _on_Loot_area_entered(area):
+	"""Called when AI enters loot area"""
+	if area.is_in_group("loot"):
+		var loot_value = area.get_value()
+		collect_loot(loot_value)
+		area.queue_free()
 
 func lose_money(amount):
 	"""Lose money"""

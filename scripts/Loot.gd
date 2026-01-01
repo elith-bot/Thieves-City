@@ -13,20 +13,15 @@ const LOOT_VALUES = {
 }
 
 func _ready():
-	# Create sprite
-	sprite = Sprite.new()
-	add_child(sprite)
-	
-	# Create collision shape
-	var collision_shape = CollisionShape2D.new()
-	var circle_shape = CircleShape2D.new()
-	circle_shape.radius = 5
-	collision_shape.shape = circle_shape
-	add_child(collision_shape)
+	# Add to loot group
+	add_to_group("loot")
 	
 	# Set loot properties
 	randomize_loot()
 	update_sprite()
+	
+	# Connect area entered signal
+	connect("body_entered", self, "_on_body_entered")
 
 func randomize_loot():
 	"""Randomly select loot type and value"""
@@ -36,13 +31,29 @@ func randomize_loot():
 
 func update_sprite():
 	"""Update sprite based on loot type"""
-	match loot_type:
-		"cash":
-			sprite.modulate = Color.green
-		"jewel":
-			sprite.modulate = Color.red
-		"wallet":
-			sprite.modulate = Color.yellow
+	var sprite_node = get_node_or_null("Sprite")
+	if sprite_node:
+		var texture_path = ""
+		match loot_type:
+			"cash":
+				texture_path = "res://assets/sprites/loot_cash.png"
+			"jewel":
+				texture_path = "res://assets/sprites/loot_jewel.png"
+			"wallet":
+				texture_path = "res://assets/sprites/loot_wallet.png"
+		
+		if texture_path != "":
+			var texture = load(texture_path)
+			if texture:
+				sprite_node.texture = texture
+
+func _on_body_entered(body):
+	"""Called when a body enters the loot area"""
+	if body.is_in_group("player"):
+		# Player collected this loot
+		if body.has_method("collect_loot"):
+			body.collect_loot(loot_value)
+		queue_free()
 
 func get_value():
 	"""Get loot value"""
