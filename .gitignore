@@ -1,0 +1,53 @@
+# Godot-specific ignores
+.import/
+export.cfg
+export_presets.cfg
+
+# Mono-specific ignores
+.mono/
+data_*/
+mono_crash.*.json
+
+# Godot-specific ignores
+*.translation
+*.pot
+*.po
+
+# Build artifacts
+build/
+bin/
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS-specific
+Thumbs.db
+.directory
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Node modules (if using any build tools)
+node_modules/
+package-lock.json
+yarn.lock
+
+# User-specific files
+user://
+*.save
+*.json.bak
+
+# Temporary files
+*.tmp
+*.temp
+*.backup
+
+# Game save files (optional - remove if you want to track saves)
+game_save.json
