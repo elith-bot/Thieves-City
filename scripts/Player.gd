@@ -1,10 +1,8 @@
-extends KinematicBody2D
+extends CharacterBody2D
 
 # Movement
-const SPEED = 200
-const ACCELERATION = 500
-var velocity = Vector2.ZERO
-var current_speed = 0
+const SPEED = 200.0
+const ACCELERATION = 500.0
 
 # Money and Collision
 var current_money = 0
@@ -32,13 +30,13 @@ func _ready():
 	
 	# Connect signals
 	if game_manager:
-		game_manager.connect("money_changed", self, "_on_money_changed")
+		game_manager.money_changed.connect(_on_money_changed)
 
 func set_virtual_joystick(joystick):
 	"""Set reference to virtual joystick"""
 	virtual_joystick = joystick
 	if virtual_joystick:
-		virtual_joystick.connect("direction_changed", self, "_on_joystick_direction_changed")
+		virtual_joystick.direction_changed.connect(_on_joystick_direction_changed)
 
 func _on_joystick_direction_changed(direction):
 	"""Called when joystick direction changes"""
@@ -75,24 +73,21 @@ func handle_input():
 	input_vector = input_vector.normalized()
 	
 	if input_vector != Vector2.ZERO:
-		current_speed = SPEED
+		velocity = input_vector * SPEED
 	else:
-		current_speed = 0
-	
-	velocity = input_vector * current_speed
+		velocity = Vector2.ZERO
 
 func update_movement(delta):
 	"""Update player position"""
-	velocity = move_and_slide(velocity)
+	move_and_slide()
 
 func check_collisions():
 	"""Check for collisions with other players"""
-	var collisions = get_slide_count()
-	for i in range(collisions):
+	for i in range(get_slide_collision_count()):
 		var collision = get_slide_collision(i)
-		var collider = collision.collider
+		var collider = collision.get_collider()
 		
-		if collider.is_in_group("player") and collider != self:
+		if collider and collider.is_in_group("player") and collider != self:
 			handle_player_collision(collider)
 
 func handle_player_collision(other_player):

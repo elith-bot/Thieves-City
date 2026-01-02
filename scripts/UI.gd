@@ -18,29 +18,29 @@ func _ready():
 	
 	# Money label
 	money_label = Label.new()
-	money_label.text = "Money: 0"
-	money_label.rect_position = Vector2(10, 10)
-	money_label.add_font_override("font", load("res://assets/fonts/default_font.tres"))
+	money_label.text = "Money: $0"
+	money_label.position = Vector2(10, 10)
+	money_label.add_theme_font_size_override("font_size", 24)
 	container.add_child(money_label)
 	
 	# Timer label
 	timer_label = Label.new()
 	timer_label.text = "Time: 120"
-	timer_label.rect_position = Vector2(10, 40)
-	timer_label.add_font_override("font", load("res://assets/fonts/default_font.tres"))
+	timer_label.position = Vector2(10, 40)
+	timer_label.add_theme_font_size_override("font_size", 24)
 	container.add_child(timer_label)
 	
 	# Rank label
 	rank_label = Label.new()
 	rank_label.text = "Rank: 1/31"
-	rank_label.rect_position = Vector2(10, 70)
-	rank_label.add_font_override("font", load("res://assets/fonts/default_font.tres"))
+	rank_label.position = Vector2(10, 70)
+	rank_label.add_theme_font_size_override("font_size", 24)
 	container.add_child(rank_label)
 	
 	# Connect signals
 	if game_manager:
-		game_manager.connect("money_changed", self, "_on_money_changed")
-		game_manager.connect("rank_changed", self, "_on_rank_changed")
+		game_manager.money_changed.connect(_on_money_changed)
+		game_manager.rank_changed.connect(_on_rank_changed)
 
 func _process(delta):
 	if game_manager:
@@ -53,7 +53,7 @@ func update_timer():
 
 func _on_money_changed(new_amount):
 	"""Update money display"""
-	money_label.text = "Money: %d" % new_amount
+	money_label.text = "Money: $%d" % new_amount
 
 func _on_rank_changed(new_rank):
 	"""Update rank display"""

@@ -15,14 +15,13 @@ var ai_players = []
 var loot_items = []
 
 # Signals
-signal match_started
-signal match_ended
+signal match_started()
+signal match_ended()
 signal money_changed(new_amount)
 signal rank_changed(new_rank)
 signal player_collided(other_player)
 
 func _ready():
-	randomize()
 	# Initialize game
 	load_global_wallet()
 	setup_match()
@@ -37,7 +36,7 @@ func setup_match():
 	current_match_money = 0
 	match_time_remaining = MATCH_DURATION
 	is_match_active = true
-	emit_signal("match_started")
+	match_started.emit()
 	print("Match started!")
 
 func update_match_timer(delta):
@@ -51,19 +50,19 @@ func end_match():
 	is_match_active = false
 	global_wallet += current_match_money
 	save_global_wallet()
-	emit_signal("match_ended")
+	match_ended.emit()
 	print("Match ended! Total earnings: ", current_match_money)
 	print("Global wallet: ", global_wallet)
 
 func add_money(amount):
 	"""Add money to current match"""
 	current_match_money += amount
-	emit_signal("money_changed", current_match_money)
+	money_changed.emit(current_match_money)
 
 func subtract_money(amount):
 	"""Subtract money from current match"""
 	current_match_money = max(0, current_match_money - amount)
-	emit_signal("money_changed", current_match_money)
+	money_changed.emit(current_match_money)
 
 func update_leaderboard():
 	"""Update player ranking"""
@@ -73,23 +72,37 @@ func update_leaderboard():
 func load_global_wallet():
 	"""Load global wallet from save file"""
 	var save_file = "user://game_save.json"
-	if ResourceLoader.exists(save_file):
-		var file = File.new()
-		file.open(save_file, File.READ)
-		var data = parse_json(file.get_as_text())
-		global_wallet = data.get("global_wallet", 0)
-		file.close()
+	if FileAccess.file_exists(save_file):
+		var file = FileAccess.open(save_file, FileAccess.READ)
+		if file:
+			var json_string = file.get_as_text()
+			file.close()
+			
+			var json = JSON.new()
+			var parse_result = json.parse(json_string)
+			
+			if parse_result == OK:
+				var data = json.data
+				global_wallet = data.get("global_wallet", 0)
+			else:
+				print("Error parsing save file")
+				global_wallet = 0
+		else:
+			print("Error opening save file")
+			global_wallet = 0
 	else:
 		global_wallet = 0
 
 func save_global_wallet():
 	"""Save global wallet to file"""
 	var save_file = "user://game_save.json"
-	var file = File.new()
-	file.open(save_file, File.WRITE)
-	var data = {"global_wallet": global_wallet}
-	file.store_line(to_json(data))
-	file.close()
+	var file = FileAccess.open(save_file, FileAccess.WRITE)
+	if file:
+		var data = {"global_wallet": global_wallet}
+		file.store_string(JSON.stringify(data))
+		file.close()
+	else:
+		print("Error saving game")
 
 func get_match_time_remaining():
 	"""Get remaining match time"""

@@ -1,10 +1,8 @@
-extends KinematicBody2D
+extends CharacterBody2D
 
 # Movement
-const SPEED = 150
-const ACCELERATION = 400
-var velocity = Vector2.ZERO
-var current_speed = 0
+const SPEED = 150.0
+const ACCELERATION = 400.0
 
 # Money and Collision
 var current_money = 0
@@ -12,7 +10,7 @@ var game_manager = null
 
 # AI Behavior
 var target_position = Vector2.ZERO
-var behavior_timer = 0
+var behavior_timer = 0.0
 var behavior_change_interval = 2.0  # Change behavior every 2 seconds
 var current_behavior = "wander"  # wander, chase, flee
 
@@ -22,7 +20,7 @@ var map_height = 720
 
 # Sprite
 var sprite = null
-var color = Color.white
+var color = Color.WHITE
 
 func _ready():
 	# Get reference to GameManager
@@ -35,12 +33,12 @@ func _ready():
 	
 	# Set random color
 	randomize_color()
-	var sprite_node = get_node_or_null("Sprite")
+	var sprite_node = get_node_or_null("Sprite2D")
 	if sprite_node:
 		sprite_node.modulate = color
 	
 	# Set random starting position
-	global_position = Vector2(rand_range(100, map_width - 100), rand_range(100, map_height - 100))
+	global_position = Vector2(randf_range(100, map_width - 100), randf_range(100, map_height - 100))
 	
 	# Initialize behavior
 	choose_new_behavior()
@@ -71,14 +69,14 @@ func choose_new_behavior():
 	
 	match current_behavior:
 		"wander":
-			target_position = Vector2(rand_range(50, map_width - 50), rand_range(50, map_height - 50))
+			target_position = Vector2(randf_range(50, map_width - 50), randf_range(50, map_height - 50))
 		"chase":
 			# Chase nearest loot
 			var nearest_loot = find_nearest_loot()
 			if nearest_loot:
 				target_position = nearest_loot.global_position
 			else:
-				target_position = Vector2(rand_range(50, map_width - 50), rand_range(50, map_height - 50))
+				target_position = Vector2(randf_range(50, map_width - 50), randf_range(50, map_height - 50))
 		"flee":
 			# Flee from nearest richer player
 			var threatening_player = find_nearest_richer_player()
@@ -86,7 +84,7 @@ func choose_new_behavior():
 				var flee_direction = (global_position - threatening_player.global_position).normalized()
 				target_position = global_position + flee_direction * 200
 			else:
-				target_position = Vector2(rand_range(50, map_width - 50), rand_range(50, map_height - 50))
+				target_position = Vector2(randf_range(50, map_width - 50), randf_range(50, map_height - 50))
 
 func find_nearest_loot():
 	"""Find nearest loot item"""
@@ -125,12 +123,11 @@ func update_movement(delta):
 	var direction = (target_position - global_position).normalized()
 	
 	if global_position.distance_to(target_position) > 10:
-		current_speed = SPEED
+		velocity = direction * SPEED
 	else:
-		current_speed = 0
+		velocity = Vector2.ZERO
 	
-	velocity = direction * current_speed
-	velocity = move_and_slide(velocity)
+	move_and_slide()
 	
 	# Keep within map boundaries
 	global_position.x = clamp(global_position.x, 0, map_width)
@@ -138,12 +135,11 @@ func update_movement(delta):
 
 func check_collisions():
 	"""Check for collisions with other players"""
-	var collisions = get_slide_count()
-	for i in range(collisions):
+	for i in range(get_slide_collision_count()):
 		var collision = get_slide_collision(i)
-		var collider = collision.collider
+		var collider = collision.get_collider()
 		
-		if collider.is_in_group("player") and collider != self:
+		if collider and collider.is_in_group("player") and collider != self:
 			handle_player_collision(collider)
 
 func handle_player_collision(other_player):
